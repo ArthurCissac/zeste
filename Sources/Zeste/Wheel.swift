@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 
 final class WheelPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -10,19 +11,23 @@ final class WheelPanel: NSPanel {
 final class Wheel: NSObject, NSWindowDelegate {
     static let shared = Wheel()
 
-    let size: CGFloat = 420
+    let size: CGFloat = 440
     let panel: WheelPanel
     let view: WheelView
+    private let root: NSView
     private(set) var files: [URL] = []
     private(set) var mode: Mode = .convert
     private(set) var keyboardMode = false
+    /// Incrémenté à chaque ouverture : une fermeture animée en cours ne doit pas masquer la roue rouverte.
+    private var generation = 0
 
-    var isVisible: Bool { panel.isVisible }
+    var isVisible: Bool { panel.isVisible && panel.alphaValue > 0.01 }
 
     override init() {
         panel = WheelPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size),
                            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         view = WheelView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+        root = NSView(frame: NSRect(x: 0, y: 0, width: size, height: size))
         super.init()
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -31,15 +36,15 @@ final class Wheel: NSObject, NSWindowDelegate {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.delegate = self
 
-        let blur = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: size, height: size).insetBy(dx: 10, dy: 10))
+        let blur = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: size, height: size).insetBy(dx: 20, dy: 20))
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow
         blur.state = .active
         blur.wantsLayer = true
-        blur.layer?.cornerRadius = (size - 20) / 2
+        blur.layer?.cornerRadius = (size - 40) / 2
         blur.layer?.masksToBounds = true
 
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+        root.wantsLayer = true
         root.addSubview(blur)
         root.addSubview(view)
         panel.contentView = root
@@ -47,16 +52,19 @@ final class Wheel: NSObject, NSWindowDelegate {
     }
 
     func show(mode: Mode, files: [URL], at point: NSPoint?, keyboard: Bool) {
+        generation += 1
         self.files = files
         self.keyboardMode = keyboard
-        apply(mode)
+        apply(mode, animated: false)
         let screen = NSScreen.screens.first { NSMouseInRect(point ?? NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main!
         let vf = screen.frame
         var c = point ?? NSPoint(x: screen.visibleFrame.midX, y: screen.visibleFrame.midY)
         c.x = min(max(c.x, vf.minX + size / 2), vf.maxX - size / 2)
         c.y = min(max(c.y, vf.minY + size / 2), vf.maxY - size / 2)
         panel.setFrameOrigin(NSPoint(x: c.x - size / 2, y: c.y - size / 2))
-        panel.alphaValue = 1
+
+        // Ouverture : fondu + léger rebond depuis 80 %.
+        panel.alphaValue = 0
         if keyboard {
             NSApp.activate(ignoringOtherApps: true)
             panel.makeKeyAndOrderFront(nil)
@@ -64,36 +72,74 @@ final class Wheel: NSObject, NSWindowDelegate {
         } else {
             panel.orderFrontRegardless()
         }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.12
+            panel.animator().alphaValue = 1
+        }
+        pop(from: 0.8)
+        view.startIntro()
+        Feedback.open()
+    }
+
+    private func pop(from scale: CGFloat) {
+        guard let layer = root.layer else { return }
+        layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer.position = CGPoint(x: size / 2, y: size / 2)
+        let spring = CASpringAnimation(keyPath: "transform.scale")
+        spring.fromValue = scale
+        spring.toValue = 1
+        spring.damping = 16
+        spring.stiffness = 320
+        spring.mass = 0.8
+        spring.duration = spring.settlingDuration
+        layer.add(spring, forKey: "pop")
     }
 
     func switchMode(_ m: Mode) {
         guard isVisible, m != mode else { return }
-        apply(m)
+        apply(m, animated: true)
     }
 
-    private func apply(_ m: Mode) {
+    private func apply(_ m: Mode, animated: Bool) {
         mode = m
         view.mode = m
         view.fileCount = files.count
         view.options = Catalog.options(for: files, mode: m)
         view.hover = keyboardMode && !view.options.isEmpty ? 0 : nil
         view.needsDisplay = true
+        if animated {
+            view.startIntro()
+            pop(from: 0.94)
+            Feedback.tick()
+        }
     }
 
     func cycleMode(_ step: Int) {
         let all = Mode.allCases
-        apply(all[(mode.rawValue + step + all.count) % all.count])
+        apply(all[(mode.rawValue + step + all.count) % all.count], animated: true)
     }
 
     func hide() {
-        panel.orderOut(nil)
         keyboardMode = false
+        guard panel.isVisible else { return }
+        let g = generation
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.1
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.generation == g else { return }
+                self.panel.orderOut(nil)
+                self.view.hover = nil
+            }
+        })
     }
 
     func perform(_ index: Int, files dropped: [URL]? = nil) {
         guard index >= 0, index < view.options.count else { return }
         let opt = view.options[index]
         let list = (dropped?.isEmpty == false) ? dropped! : files
+        Feedback.select()
         hide()
         Runner.run(opt, list)
     }
@@ -105,14 +151,27 @@ final class Wheel: NSObject, NSWindowDelegate {
 
 final class WheelView: NSView {
     weak var owner: Wheel?
-    var options: [Option] = []
+    var options: [Option] = [] { didSet { glow = Array(repeating: 0, count: options.count) } }
     var mode: Mode = .convert
     var fileCount = 0
-    var hover: Int? { didSet { if oldValue != hover { needsDisplay = true } } }
+    var hover: Int? {
+        didSet {
+            guard oldValue != hover else { return }
+            if hover != nil { Feedback.tick() }
+            animate()
+        }
+    }
 
     let inner: CGFloat = 70
     let outer: CGFloat = 196
-    let accent = NSColor(red: 0.16, green: 0.80, blue: 0.47, alpha: 1)
+    var accent: NSColor { Prefs.accent.color }
+
+    // Animation : `glow` va de 0 à 1 pour chaque part survolée, `intro` de 0 à 1 à l'ouverture.
+    private var glow: [CGFloat] = []
+    private var introStart: CFTimeInterval = 0
+    private var intro: CGFloat = 1
+    private var lastTick: CFTimeInterval = 0
+    private var timer: Timer?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -127,11 +186,58 @@ final class WheelView: NSView {
 
     private var center: NSPoint { NSPoint(x: bounds.midX, y: bounds.midY) }
 
-    /// Part sous le point ; nil au centre (annuler) ou hors de la roue.
+    // MARK: Animation
+
+    /// Fige l'animation à son état final (rendu de la roue en ligne de commande).
+    func settle() {
+        intro = 1
+        for i in glow.indices { glow[i] = hover == i ? 1 : 0 }
+        timer?.invalidate(); timer = nil
+    }
+
+    func startIntro() {
+        introStart = CACurrentMediaTime()
+        intro = 0
+        animate()
+    }
+
+    private func animate() {
+        guard timer == nil else { return }
+        lastTick = CACurrentMediaTime()
+        let t = Timer(timeInterval: 1 / 120, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.step() } }
+        // Mode .common : la roue doit s'animer même pendant un glisser.
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+    }
+
+    private func step() {
+        let now = CACurrentMediaTime()
+        let dt = CGFloat(min(now - lastTick, 1 / 30))
+        lastTick = now
+        intro = min(1, CGFloat((now - introStart) / 0.26))
+        var settled = intro >= 1
+        for i in glow.indices {
+            let target: CGFloat = hover == i ? 1 : 0
+            glow[i] += (target - glow[i]) * min(1, dt * 22)
+            if abs(target - glow[i]) < 0.005 { glow[i] = target } else { settled = false }
+        }
+        needsDisplay = true
+        if settled { timer?.invalidate(); timer = nil }
+    }
+
+    /// Courbe d'arrivée avec un léger dépassement, part par part (en cascade).
+    private func introAmount(_ i: Int, of n: Int) -> CGFloat {
+        let delay = n > 0 ? CGFloat(i) / CGFloat(n) * 0.35 : 0
+        let t = max(0, min(1, (intro - delay) / (1 - 0.35)))
+        let c1: CGFloat = 1.7, c3 = c1 + 1
+        return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
+    }
+
+    /// Index de la part sous le point ; nil au centre (annuler) ou hors de la roue.
     func index(at p: NSPoint) -> Int? {
         let dx = p.x - center.x, dy = p.y - center.y
         let r = hypot(dx, dy)
-        guard !options.isEmpty, r >= inner, r <= outer + 14 else { return nil }
+        guard !options.isEmpty, r >= inner, r <= outer + 24 else { return nil }
         var a = atan2(dx, dy) // 0 en haut, sens horaire
         if a < 0 { a += 2 * .pi }
         let step = 2 * CGFloat.pi / CGFloat(options.count)
@@ -142,25 +248,44 @@ final class WheelView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let n = options.count
+        let base = NSColor(white: 1, alpha: 0.07)
+        let ink = accent.isLight ? NSColor.black : NSColor.white
+
         if n > 0 {
             let step = 360 / CGFloat(n)
             let gap: CGFloat = n > 1 ? 1.2 : 0
             for i in 0..<n {
-                // Angles AppKit : degrés, sens antihoraire depuis l'axe x.
+                let g = i < glow.count ? glow[i] : 0
+                let k = introAmount(i, of: n)
+                let alpha = min(1, max(0, k))
+                // La part survolée sort de la roue et grossit un peu.
+                let rOut = inner + 4 + (outer - inner - 4) * k + 10 * g
+                let rIn = inner + 4 + 2 * g
                 let startCW = CGFloat(i) * step - step / 2 + gap
                 let endCW = CGFloat(i) * step + step / 2 - gap
                 let a1 = 90 - startCW, a2 = 90 - endCW
                 let path = NSBezierPath()
-                path.appendArc(withCenter: center, radius: outer, startAngle: a1, endAngle: a2, clockwise: true)
-                path.appendArc(withCenter: center, radius: inner + 4, startAngle: a2, endAngle: a1, clockwise: false)
+                path.appendArc(withCenter: center, radius: max(rOut, rIn + 1), startAngle: a1, endAngle: a2, clockwise: true)
+                path.appendArc(withCenter: center, radius: rIn, startAngle: a2, endAngle: a1, clockwise: false)
                 path.close()
-                (hover == i ? accent : NSColor(white: 1, alpha: 0.07)).setFill()
+
+                NSGraphicsContext.saveGraphicsState()
+                if g > 0.01 {
+                    let shadow = NSShadow()
+                    shadow.shadowColor = accent.withAlphaComponent(0.55 * g)
+                    shadow.shadowBlurRadius = 18 * g
+                    shadow.set()
+                }
+                (base.blended(withFraction: g, of: accent) ?? base).withAlphaComponent((0.07 + 0.93 * g) * alpha).setFill()
                 path.fill()
+                NSGraphicsContext.restoreGraphicsState()
 
                 let mid = (90 - CGFloat(i) * step) * .pi / 180
-                let rr = (inner + outer) / 2 + 4
-                let pt = NSPoint(x: center.x + cos(mid) * rr, y: center.y + sin(mid) * rr)
-                drawItem(options[i], at: pt, highlighted: hover == i, crowded: n > 8)
+                let rr = (inner + outer) / 2 + 4 + 5 * g
+                let reach = inner + (rr - inner) * k
+                let pt = NSPoint(x: center.x + cos(mid) * reach, y: center.y + sin(mid) * reach)
+                let color = (NSColor.white.blended(withFraction: g, of: ink) ?? .white).withAlphaComponent(alpha)
+                drawItem(options[i], at: pt, color: color, scale: 1 + 0.16 * g, crowded: n > 8)
             }
         }
 
@@ -194,18 +319,18 @@ final class WheelView: NSView {
         }
     }
 
-    private func drawItem(_ o: Option, at p: NSPoint, highlighted: Bool, crowded: Bool) {
-        let iconSize: CGFloat = crowded ? 20 : 24
+    private func drawItem(_ o: Option, at p: NSPoint, color: NSColor, scale: CGFloat, crowded: Bool) {
+        let iconSize: CGFloat = (crowded ? 20 : 24) * scale
         let cfg = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .medium)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [highlighted ? .black : .white]))
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
         let img = (NSImage(systemSymbolName: o.symbol, accessibilityDescription: o.title)
             ?? NSImage(systemSymbolName: "circle", accessibilityDescription: nil))?.withSymbolConfiguration(cfg)
         if let img {
             let s = img.size
             img.draw(in: NSRect(x: p.x - s.width / 2, y: p.y + 2, width: s.width, height: s.height))
         }
-        drawCentered(o.title, y: p.y - 16, size: crowded ? 9.5 : 10.5, weight: .semibold,
-                     color: highlighted ? .black : .white, width: crowded ? 70 : 86, centerX: p.x)
+        drawCentered(o.title, y: p.y - 16, size: (crowded ? 9.5 : 10.5) * min(scale, 1.08), weight: .semibold,
+                     color: color, width: crowded ? 74 : 90, centerX: p.x)
     }
 
     private func drawCentered(_ s: String, y: CGFloat, size: CGFloat, weight: NSFont.Weight, color: NSColor, width: CGFloat, centerX: CGFloat? = nil) {
@@ -268,5 +393,13 @@ final class WheelView: NSView {
             owner?.switchMode(m)
             return
         }
+    }
+}
+
+extension NSColor {
+    /// Couleur claire : on écrit en noir par-dessus.
+    var isLight: Bool {
+        guard let c = usingColorSpace(.sRGB) else { return false }
+        return 0.299 * c.redComponent + 0.587 * c.greenComponent + 0.114 * c.blueComponent > 0.62
     }
 }

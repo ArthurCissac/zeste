@@ -47,6 +47,32 @@ enum OutputPlace: String, CaseIterable, Identifiable {
     }
 }
 
+/// Couleur de la roue (part survolée, touche active).
+enum Accent: String, CaseIterable, Identifiable {
+    case violet, indigo, bleu, cyan, orange, ambre, rose, rouge, graphite
+
+    var id: String { rawValue }
+
+    var color: NSColor {
+        func rgb(_ hex: UInt32) -> NSColor {
+            NSColor(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+        }
+        switch self {
+        case .violet: return rgb(0x8B5CF6)
+        case .indigo: return rgb(0x6366F1)
+        case .bleu: return rgb(0x3B82F6)
+        case .cyan: return rgb(0x22D3EE)
+        case .orange: return rgb(0xFF8A1F)
+        case .ambre: return rgb(0xFBBF24)
+        case .rose: return rgb(0xEC4899)
+        case .rouge: return rgb(0xEF4444)
+        case .graphite: return rgb(0xD4D4D8)
+        }
+    }
+
+    var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
+}
+
 /// Réglages, lus dans UserDefaults (mêmes clés que la fenêtre SwiftUI).
 enum Prefs {
     private static var d: UserDefaults { .standard }
@@ -66,4 +92,9 @@ enum Prefs {
     }
 
     static var sound: Bool { d.object(forKey: "sound") as? Bool ?? true }
+
+    static var accent: Accent { Accent(rawValue: d.string(forKey: "accent") ?? "") ?? .violet }
+
+    /// Petits clics et retour haptique au survol de la roue.
+    static var clicks: Bool { d.object(forKey: "clicks") as? Bool ?? true }
 }

@@ -88,6 +88,8 @@ struct SettingsView: View {
     @AppStorage("output") private var output = OutputPlace.beside.rawValue
     @AppStorage("quality") private var quality = 0.85
     @AppStorage("sound") private var sound = true
+    @AppStorage("accent") private var accent = Accent.violet.rawValue
+    @AppStorage("clicks") private var clicks = true
     @State private var atLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -101,6 +103,17 @@ struct SettingsView: View {
                     Text("Deux roues utilisent la même touche : choisis trois touches différentes.")
                         .foregroundStyle(.orange).font(.callout)
                 }
+            }
+            Section("Apparence") {
+                Picker("Couleur de la roue", selection: $accent) {
+                    ForEach(Accent.allCases) { a in
+                        HStack {
+                            Image(systemName: "circle.fill").foregroundStyle(Color(nsColor: a.color))
+                            Text(a.label)
+                        }.tag(a.rawValue)
+                    }
+                }
+                Toggle("Petits clics et vibration au survol", isOn: $clicks)
             }
             Section("Fichiers créés") {
                 Picker("Emplacement", selection: $output) {
@@ -154,6 +167,7 @@ enum CLI {
                 v.mode = mode; v.fileCount = list.count
                 v.options = Catalog.options(for: Array(list), mode: mode)
                 v.hover = ProcessInfo.processInfo.environment["ZESTE_HOVER"].flatMap { Int($0) }
+                v.settle()
                 let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds)!
                 NSGraphicsContext.saveGraphicsState()
                 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)

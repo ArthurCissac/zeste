@@ -1,4 +1,4 @@
-// Dessine l'icône de Zeste (1024 px) : une roue à six parts sur fond vert, création originale.
+// Dessine l'icône de Zeste (1024 px) : une roue à six parts sur fond violet, création originale.
 // Usage : swift scripts/make-icon.swift sortie.png
 import AppKit
 
@@ -9,11 +9,11 @@ let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsH
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
 
-// Fond : carré arrondi façon macOS, dégradé vert.
+// Fond : carré arrondi façon macOS, dégradé violet.
 let inset: CGFloat = 100
 let rect = NSRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
 let bg = NSBezierPath(roundedRect: rect, xRadius: 185, yRadius: 185)
-NSGradient(colors: [NSColor(red: 0.10, green: 0.62, blue: 0.38, alpha: 1), NSColor(red: 0.20, green: 0.86, blue: 0.52, alpha: 1)])!
+NSGradient(colors: [NSColor(red: 0.36, green: 0.17, blue: 0.85, alpha: 1), NSColor(red: 0.60, green: 0.42, blue: 0.98, alpha: 1)])!
     .draw(in: bg, angle: 90)
 
 // Roue : six parts, une mise en avant.
