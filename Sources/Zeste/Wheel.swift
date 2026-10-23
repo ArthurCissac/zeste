@@ -309,23 +309,14 @@ final class WheelView: NSView {
             sub = "Rien pour ce fichier"
         } else if let h = hover, h < n {
             title = options[h].title
-            sub = mode.title
+            sub = "\(Prefs.key(for: mode).symbol) \(mode.title)"
         } else {
             title = mode.title
-            sub = fileCount > 1 ? "\(fileCount) fichiers" : "1 fichier"
+            sub = "\(Prefs.key(for: mode).symbol) · " + (fileCount > 1 ? "\(fileCount) fichiers" : "1 fichier")
         }
         drawCentered(title, y: center.y + 4, size: title.count > 12 ? 11 : 14, weight: .bold, color: .white, width: (inner - 10) * 2)
         drawCentered(sub, y: center.y - 14, size: 10, weight: .medium, color: NSColor(white: 1, alpha: 0.65), width: (inner - 10) * 2)
 
-        // Rappel des touches des trois roues
-        let keys = Mode.allCases.map { (Prefs.key(for: $0).symbol, $0 == mode) }
-        let widths = keys.map { CGFloat($0.0.count) * 10 + 6 }
-        var x = center.x - widths.reduce(0, +) / 2
-        for (i, k) in keys.enumerated() {
-            drawCentered(k.0, y: center.y - 36, size: 10, weight: .bold,
-                         color: k.1 ? accent : NSColor(white: 1, alpha: 0.4), width: widths[i], centerX: x + widths[i] / 2)
-            x += widths[i]
-        }
     }
 
     private func drawItem(_ o: Option, at p: NSPoint, color: NSColor, scale: CGFloat, crowded: Bool) {
