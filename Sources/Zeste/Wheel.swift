@@ -35,8 +35,11 @@ final class Wheel: NSObject, NSWindowDelegate {
         panel.level = .popUpMenu
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.delegate = self
+        panel.appearance = NSAppearance(named: .darkAqua)
 
         let blur = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: size, height: size).insetBy(dx: 20, dy: 20))
+        // Toujours sombre : en mode clair, le flou devenait blanc et le texte blanc disparaissait.
+        blur.appearance = NSAppearance(named: .vibrantDark)
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow
         blur.state = .active
@@ -248,7 +251,12 @@ final class WheelView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let n = options.count
-        let base = NSColor(white: 1, alpha: 0.07)
+        let base = NSColor(white: 1, alpha: 0.08)
+
+        // Disque sombre sous les parts : lisible même au-dessus d'une fenêtre blanche.
+        let disc = NSBezierPath(ovalIn: NSRect(x: center.x - outer - 4, y: center.y - outer - 4, width: (outer + 4) * 2, height: (outer + 4) * 2))
+        NSColor(white: 0.07, alpha: 0.86).setFill()
+        disc.fill()
         let ink = accent.isLight ? NSColor.black : NSColor.white
 
         if n > 0 {

@@ -178,8 +178,9 @@ enum CLI {
                 let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds)!
                 NSGraphicsContext.saveGraphicsState()
                 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-                NSColor(white: 0.12, alpha: 1).setFill()
-                NSBezierPath(ovalIn: v.bounds.insetBy(dx: 10, dy: 10)).fill()
+                // Fond blanc : le pire cas de lisibilité (fenêtre claire derrière la roue).
+                NSColor.white.setFill()
+                v.bounds.fill()
                 NSGraphicsContext.restoreGraphicsState()
                 v.cacheDisplay(in: v.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[2]))
