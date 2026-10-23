@@ -64,6 +64,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         a.runModal()
     }
 
+    /// Rouvrir Zeste (Spotlight, Finder) alors qu'il tourne déjà affiche les réglages :
+    /// l'icône de la barre des menus peut être cachée par l'encoche quand il y en a beaucoup.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openSettings()
+        return false
+    }
+
     @objc private func openSettings() {
         if settings == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
