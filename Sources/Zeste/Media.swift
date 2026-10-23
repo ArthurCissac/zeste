@@ -38,6 +38,12 @@ enum Media {
     static let even = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
     static let gifFilter = "fps=12,scale='min(720,iw)':-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4"
 
+    /// Qualité constante de VideoToolbox (0-100), calée sur l'échelle CRF de x264 : 21 → 65, 28 → 50.
+    static func h264(_ crf: String) -> [String] {
+        let q = max(30, min(85, 110 - Int((Double(crf) ?? 21) * 2.15)))
+        return ["-c:v", "h264_videotoolbox", "-q:v", String(q), "-pix_fmt", "yuv420p"]
+    }
+
     /// Codecs vidéo + audio selon l'extension de sortie. `vf` : filtre vidéo à appliquer avant.
     static func encode(_ ext: String, vf: String? = nil, crf: String = "21", audioBitrate: String = "160k") -> [String] {
         func filter(_ last: String?) -> [String] {
@@ -46,8 +52,8 @@ enum Media {
         }
         switch ext {
         case "mp4", "mov", "mkv", "m4v", "3gp", "mpg", "mpeg":
-            let x264 = filter(even) + ["-c:v", "libx264", "-preset", "veryfast", "-crf", crf, "-pix_fmt", "yuv420p",
-                                       "-c:a", "aac", "-b:a", audioBitrate]
+            // H.264 par l'encodeur matériel d'Apple (VideoToolbox) : rapide, et sans la licence GPL de x264.
+            let x264 = filter(even) + h264(crf) + ["-c:a", "aac", "-b:a", audioBitrate]
             return x264 + (ext == "mp4" || ext == "m4v" ? ["-movflags", "+faststart"] : [])
         case "webm":
             return filter(nil) + ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-deadline", "good",
@@ -222,7 +228,7 @@ enum Media {
         var maps = ["-map", "[v]"]
         if allAudio { maps += ["-map", "[a]"] }
         try await ff(inputs + ["-filter_complex", graph] + maps
-                     + ["-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out.path])
+                     + h264("21") + ["-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out.path])
         return [out]
     }
 

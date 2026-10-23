@@ -3,7 +3,10 @@ import Foundation
 /// Lancement des outils en ligne de commande (ffmpeg, cwebp, ditto, tar, osascript…), sans shell :
 /// les chemins sont passés tels quels en arguments, jamais interprétés.
 enum Shell {
+    /// Les outils embarqués dans l'app (Contents/Resources/bin) passent avant ceux de Homebrew.
     static func find(_ name: String) -> String? {
+        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("bin/\(name)").path,
+           FileManager.default.isExecutableFile(atPath: bundled) { return bundled }
         for dir in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin"] {
             let p = "\(dir)/\(name)"
             if FileManager.default.isExecutableFile(atPath: p) { return p }
@@ -12,12 +15,12 @@ enum Shell {
     }
 
     static func ffmpeg() throws -> String {
-        guard let p = find("ffmpeg") else { throw ZError.msg("ffmpeg introuvable : installe-le avec « brew install ffmpeg »") }
+        guard let p = find("ffmpeg") else { throw ZError.msg("ffmpeg introuvable : réinstalle Zeste") }
         return p
     }
 
     static func ffprobe() throws -> String {
-        guard let p = find("ffprobe") else { throw ZError.msg("ffprobe introuvable : installe-le avec « brew install ffmpeg »") }
+        guard let p = find("ffprobe") else { throw ZError.msg("ffprobe introuvable : réinstalle Zeste") }
         return p
     }
 
