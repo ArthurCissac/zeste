@@ -10,6 +10,7 @@ enum Catalog {
         case .convert: return convert(urls)
         case .tools: return tools(urls)
         case .extras: return extras(urls)
+        case .edit: return edit(urls)
         }
     }
 
@@ -146,7 +147,6 @@ enum Catalog {
         case .video:
             var t = [tool("vid-compress", "Compresser", "arrow.down.right.and.arrow.up.left", one(Media.compressVideo)),
                      tool("vid-720", "720p", "rectangle.compress.vertical", one(Media.to720)),
-                     tool("trim", "Couper", "scissors", one(Media.trim)),
                      tool("split", "Découper", "square.split.2x1", Media.split),
                      tool("mute", "Muet", "speaker.slash", one(Media.mute)),
                      tool("vid-rotate", "Pivoter", "rotate.right", one(Media.rotateVideo)),
@@ -156,7 +156,6 @@ enum Catalog {
             return t + [zip]
         case .audio:
             var t = [tool("aud-compress", "Compresser", "arrow.down.right.and.arrow.up.left", one(Media.compressAudio)),
-                     tool("trim", "Couper", "scissors", one(Media.trim)),
                      tool("split", "Découper", "square.split.2x1", Media.split),
                      tool("normalize", "Normaliser", "speaker.wave.3", one(Media.normalize)),
                      tool("mono", "Mono", "speaker.wave.1", one(Media.mono))]
@@ -171,6 +170,25 @@ enum Catalog {
             return t + [zip]
         default:
             return [zip]
+        }
+    }
+
+    // MARK: Éditer (fenêtres avec aperçu)
+
+    static func edit(_ urls: [URL]) -> [Option] {
+        let kinds = Set(urls.map(\.kind))
+        guard kinds.count == 1, let kind = kinds.first else { return [] }
+        switch kind {
+        case .image, .svg:
+            return [Option(id: "edit-photo", title: "Retoucher", symbol: "slider.horizontal.3", silent: true, run: Editors.photo),
+                    tool("remove-bg", "Retirer le fond", "person.crop.rectangle.badge.plus", one(BackgroundRemover.run))]
+        case .video:
+            return [Option(id: "edit-trim", title: "Couper", symbol: "waveform.badge.magnifyingglass", silent: true, run: Editors.trim),
+                    Option(id: "edit-video", title: "Retoucher", symbol: "slider.horizontal.3", silent: true, run: Editors.videoLook)]
+        case .audio:
+            return [Option(id: "edit-trim", title: "Couper", symbol: "waveform.badge.magnifyingglass", silent: true, run: Editors.trim)]
+        default:
+            return []
         }
     }
 

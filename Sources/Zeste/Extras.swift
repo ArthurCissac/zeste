@@ -50,7 +50,7 @@ enum Social {
     static func blurred(_ u: URL, _ f: Format) async throws -> URL {
         let out = Out.url(u, ext: "mp4", suffix: f.suffix + " fond flou")
         let w = f.w, h = f.h
-        let graph = "[0:v]scale=\(w / 4):\(h / 4):force_original_aspect_ratio=increase,crop=\(w / 4):\(h / 4),gblur=sigma=12,scale=\(w):\(h),eq=brightness=-0.08[bg];"
+        let graph = "[0:v]scale=\(w / 4):\(h / 4):force_original_aspect_ratio=increase,crop=\(w / 4):\(h / 4),gblur=sigma=12,scale=\(w):\(h),colorchannelmixer=rr=0.85:gg=0.85:bb=0.85[bg];"
             + "[0:v]scale=\(w):\(h):force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2[fg];"
             + "[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p[v]"
         try await Media.ff(["-i", u.path, "-filter_complex", graph, "-map", "[v]", "-map", "0:a?"]

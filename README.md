@@ -12,6 +12,8 @@ Glisser un ou plusieurs fichiers, et sans lâcher, appuyer sur :
 | ⇧ | Convertir | JPG, PNG, WebP, HEIC, AVIF, MP4, WebM, GIF, MP3, PDF, Word, EPUB… |
 | ⌘ | Outils | compresser, redimensionner, couper, découper, fusionner, favicon… |
 | ⌃ | Actions | AirDrop, flotter, copier, déplacer, copier le chemin, Terminal |
+| ⌥ | Extras | formats réseaux sociaux, sous-titres auto, lire texte et QR, poids cible |
+| ⇧⌘ | Éditer | retoucher une photo ou une vidéo, retirer le fond, couper avec la forme d'onde |
 
 Déposer sur une part de la roue ; au centre, on annule. Le résultat arrive à côté de l'original
 (réglable). Sans souris : sélection Finder + ⌃⌥Espace, flèches, Tab, Entrée, Échap.

@@ -41,13 +41,10 @@ final class DragWatcher {
     }
 
     private func tick() {
-        let flags = NSEvent.modifierFlags
-        for m in Mode.allCases where flags.contains(Prefs.key(for: m).flag) {
-            let wheel = Wheel.shared
-            if wheel.isVisible { wheel.switchMode(m) }
-            else { wheel.show(mode: m, files: files, at: NSEvent.mouseLocation, keyboard: false) }
-            return
-        }
+        guard let m = Prefs.mode(for: NSEvent.modifierFlags) else { return }
+        let wheel = Wheel.shared
+        if wheel.isVisible { wheel.switchMode(m) }
+        else { wheel.show(mode: m, files: files, at: NSEvent.mouseLocation, keyboard: false) }
     }
 
     private func up() {

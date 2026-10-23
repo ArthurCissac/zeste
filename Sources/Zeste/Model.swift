@@ -17,9 +17,9 @@ enum ZError: LocalizedError {
 // MARK: - Les trois roues
 
 enum Mode: Int, CaseIterable {
-    case convert, tools, actions, extras
+    case convert, tools, actions, extras, edit
 
-    var title: String { ["Convertir", "Outils", "Actions", "Extras"][rawValue] }
+    var title: String { ["Convertir", "Outils", "Actions", "Extras", "Éditer"][rawValue] }
 }
 
 /// Une entrée de roue : un format de sortie, un outil ou une action.
@@ -31,6 +31,8 @@ struct Option {
     var target: String? = nil
     /// Message de fin pour les actions qui ne créent pas de fichier (« Chemin copié »…).
     var done: ((Int) -> String)? = nil
+    /// Ouvre une fenêtre (éditeurs) : pas de bulle de résultat.
+    var silent = false
     let run: @MainActor ([URL]) async throws -> [URL]
 }
 

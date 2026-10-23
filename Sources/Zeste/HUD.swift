@@ -100,6 +100,13 @@ enum Runner {
         Task { @MainActor in
             partialErrors = []
             note = nil
+            if opt.silent {
+                HUD.shared.hide()
+                do { _ = try await opt.run(files) } catch ZError.cancelled {} catch {
+                    HUD.shared.show("✗ " + error.localizedDescription, duration: 9)
+                }
+                return
+            }
             HUD.shared.show("\(opt.title)…", spinning: true)
             do {
                 let outs = try await opt.run(files)

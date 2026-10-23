@@ -319,11 +319,12 @@ final class WheelView: NSView {
 
         // Rappel des touches des trois roues
         let keys = Mode.allCases.map { (Prefs.key(for: $0).symbol, $0 == mode) }
-        let total = CGFloat(keys.count) * 18
+        let widths = keys.map { CGFloat($0.0.count) * 10 + 6 }
+        var x = center.x - widths.reduce(0, +) / 2
         for (i, k) in keys.enumerated() {
-            let x = center.x - total / 2 + CGFloat(i) * 18 + 9
-            drawCentered(k.0, y: center.y - 36, size: 11, weight: .bold,
-                         color: k.1 ? accent : NSColor(white: 1, alpha: 0.4), width: 18, centerX: x)
+            drawCentered(k.0, y: center.y - 36, size: 10, weight: .bold,
+                         color: k.1 ? accent : NSColor(white: 1, alpha: 0.4), width: widths[i], centerX: x + widths[i] / 2)
+            x += widths[i]
         }
     }
 
@@ -397,10 +398,7 @@ final class WheelView: NSView {
     }
 
     override func flagsChanged(with event: NSEvent) {
-        for m in Mode.allCases where event.modifierFlags.contains(Prefs.key(for: m).flag) {
-            owner?.switchMode(m)
-            return
-        }
+        if let m = Prefs.mode(for: event.modifierFlags) { owner?.switchMode(m) }
     }
 }
 

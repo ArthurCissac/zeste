@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.button?.image = NSImage(systemSymbolName: "circle.dashed.inset.filled", accessibilityDescription: "Zeste")
 
         let menu = NSMenu()
-        let head = NSMenuItem(title: "Zeste : glisse un fichier, puis ⇧ ⌘ ⌃ ou ⌥", action: nil, keyEquivalent: "")
+        let head = NSMenuItem(title: "Zeste : glisse un fichier, puis ⇧ ⌘ ⌃ ⌥ ou ⇧⌘", action: nil, keyEquivalent: "")
         head.isEnabled = false
         menu.addItem(head)
         menu.addItem(.separator())
@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         \(k(.convert))  pour convertir (JPG, WebP, MP4, PDF, Word…)
         \(k(.tools))  pour les outils (compresser, couper, fusionner…)
         \(k(.actions))  pour les actions (AirDrop, copier le chemin…)
+        \(k(.edit))  pour éditer (retoucher une photo, retirer le fond, couper avec la forme d'onde)
         \(k(.extras))  pour les extras (formats réseaux sociaux, sous-titres auto, lire le texte, taille cible…)
 
         Une roue apparaît : dépose le fichier sur la part voulue. Au centre, tu annules. Le fichier créé arrive à côté de l'original.
@@ -94,6 +95,7 @@ struct SettingsView: View {
     @AppStorage("toolsKey") private var toolsKey = ModKey.command.rawValue
     @AppStorage("actionsKey") private var actionsKey = ModKey.control.rawValue
     @AppStorage("extrasKey") private var extrasKey = ModKey.option.rawValue
+    @AppStorage("editKey") private var editKey = ModKey.shiftCommand.rawValue
     @AppStorage("speechLang") private var speechLang = "fr-FR"
     @AppStorage("output") private var output = OutputPlace.beside.rawValue
     @AppStorage("quality") private var quality = 0.85
@@ -110,8 +112,9 @@ struct SettingsView: View {
                 keyPicker("Outils", $toolsKey)
                 keyPicker("Actions", $actionsKey)
                 keyPicker("Extras", $extrasKey)
-                if Set([convertKey, toolsKey, actionsKey, extrasKey]).count < 4 {
-                    Text("Deux roues utilisent la même touche : choisis quatre touches différentes.")
+                keyPicker("Éditer", $editKey)
+                if Set([convertKey, toolsKey, actionsKey, extrasKey, editKey]).count < 5 {
+                    Text("Deux roues utilisent la même touche : choisis cinq combinaisons différentes.")
                         .foregroundStyle(.orange).font(.callout)
                 }
             }
@@ -191,6 +194,32 @@ enum CLI {
                 v.bounds.fill()
                 NSGraphicsContext.restoreGraphicsState()
                 v.cacheDisplay(in: v.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[2]))
+                exit(0)
+            }
+            if first == "render-editor", args.count >= 3 {
+                // Zeste --run render-editor <fichier> <sortie.png> : capture de l'éditeur, pour vérifier la mise en page.
+                let u = URL(fileURLWithPath: args[1])
+                let win = NSWindow()
+                let view: AnyView
+                if u.kind == .image {
+                    let m = try! PhotoModel(url: u)
+                    m.look.exposure = 0.6; m.look.warmth = 0.5
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    view = AnyView(PhotoEditorView(model: m, window: win))
+                } else {
+                    let m = TrimModel(url: u)
+                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    m.start = m.duration * 0.2; m.end = m.duration * 0.75; m.playhead = m.duration * 0.4
+                    view = AnyView(TrimEditorView(model: m, window: win))
+                }
+                let host = NSHostingView(rootView: view.frame(width: 1100, height: u.kind == .image ? 700 : 380))
+                host.frame = NSRect(x: 0, y: 0, width: 1100, height: u.kind == .image ? 700 : 380)
+                win.contentView = host
+                host.layoutSubtreeIfNeeded()
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
+                host.cacheDisplay(in: host.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[2]))
                 exit(0)
             }

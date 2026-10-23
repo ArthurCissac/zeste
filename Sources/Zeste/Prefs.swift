@@ -1,7 +1,7 @@
 import AppKit
 
 enum ModKey: String, CaseIterable, Identifiable {
-    case shift, command, control, option
+    case shift, command, control, option, shiftCommand, shiftOption, controlOption
 
     var id: String { rawValue }
 
@@ -11,6 +11,9 @@ enum ModKey: String, CaseIterable, Identifiable {
         case .command: return .command
         case .control: return .control
         case .option: return .option
+        case .shiftCommand: return [.shift, .command]
+        case .shiftOption: return [.shift, .option]
+        case .controlOption: return [.control, .option]
         }
     }
 
@@ -20,6 +23,9 @@ enum ModKey: String, CaseIterable, Identifiable {
         case .command: return "⌘"
         case .control: return "⌃"
         case .option: return "⌥"
+        case .shiftCommand: return "⇧⌘"
+        case .shiftOption: return "⇧⌥"
+        case .controlOption: return "⌃⌥"
         }
     }
 
@@ -29,6 +35,9 @@ enum ModKey: String, CaseIterable, Identifiable {
         case .command: return "⌘ Commande"
         case .control: return "⌃ Contrôle"
         case .option: return "⌥ Option"
+        case .shiftCommand: return "⇧⌘ Maj + Commande"
+        case .shiftOption: return "⇧⌥ Maj + Option"
+        case .controlOption: return "⌃⌥ Contrôle + Option"
         }
     }
 }
@@ -78,9 +87,16 @@ enum Prefs {
     private static var d: UserDefaults { .standard }
 
     static func key(for mode: Mode) -> ModKey {
-        let defaults: [Mode: ModKey] = [.convert: .shift, .tools: .command, .actions: .control, .extras: .option]
-        let names: [Mode: String] = [.convert: "convertKey", .tools: "toolsKey", .actions: "actionsKey", .extras: "extrasKey"]
+        let defaults: [Mode: ModKey] = [.convert: .shift, .tools: .command, .actions: .control, .extras: .option, .edit: .shiftCommand]
+        let names: [Mode: String] = [.convert: "convertKey", .tools: "toolsKey", .actions: "actionsKey", .extras: "extrasKey", .edit: "editKey"]
         return ModKey(rawValue: d.string(forKey: names[mode]!) ?? "") ?? defaults[mode]!
+    }
+
+    /// Roue correspondant exactement aux touches tenues (⇧ seul ≠ ⇧⌘). nil si aucune.
+    static func mode(for flags: NSEvent.ModifierFlags) -> Mode? {
+        let held = flags.intersection([.shift, .command, .control, .option])
+        guard !held.isEmpty else { return nil }
+        return Mode.allCases.first { key(for: $0).flag == held }
     }
 
     static var output: OutputPlace { OutputPlace(rawValue: d.string(forKey: "output") ?? "") ?? .beside }
