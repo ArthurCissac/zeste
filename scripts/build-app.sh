@@ -6,8 +6,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 swift build -c release
-APP=build/Zeste.app
+BUILD_DIR=${BUILD_DIR:-build}
+APP=$BUILD_DIR/Zeste.app
 rm -rf "$APP"
+mkdir -p "$BUILD_DIR"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin" "$APP/Contents/Resources/Licences"
 cp .build/release/Zeste "$APP/Contents/MacOS/Zeste"
 

@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.menu = menu
 
         watcher.start()
+        HiddenLauncher.start()
         HotKey.handler = { FinderSelection.openWheel() }
         HotKey.register()
 
@@ -103,6 +104,7 @@ struct SettingsView: View {
     @AppStorage("accent") private var accent = Accent.violet.rawValue
     @AppStorage("clicks") private var clicks = true
     @State private var atLogin = SMAppService.mainApp.status == .enabled
+    @State private var hidden = HiddenLauncher.paths
     @State private var loginError: String?
 
     var body: some View {
@@ -137,6 +139,33 @@ struct SettingsView: View {
                     Slider(value: $quality, in: 0.4...1.0, step: 0.05)
                     Text("Qualité JPG, HEIC, AVIF, WebP : \(Int(quality * 100)) %").font(.callout).foregroundStyle(.secondary)
                 }
+            }
+            Section {
+                ForEach(hidden, id: \.self) { p in
+                    HStack {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: p)).resizable().frame(width: 20, height: 20)
+                        Text(URL(fileURLWithPath: p).deletingPathExtension().lastPathComponent)
+                        Spacer()
+                        Button { hidden.removeAll { $0 == p }; HiddenLauncher.paths = hidden } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }.buttonStyle(.borderless)
+                    }
+                }
+                Button("Ajouter une app…") {
+                    let panel = NSOpenPanel()
+                    panel.allowedContentTypes = [.application]
+                    panel.directoryURL = URL(fileURLWithPath: "/Applications")
+                    panel.allowsMultipleSelection = true
+                    if panel.runModal() == .OK {
+                        for u in panel.urls where !hidden.contains(u.path) { hidden.append(u.path) }
+                        HiddenLauncher.paths = hidden
+                    }
+                }
+            } header: {
+                Text("Ouvrir cachées au démarrage")
+            } footer: {
+                Text("Zeste les ouvre en arrière-plan, sans fenêtre : elles restent utilisables depuis la barre des menus. Retire-les de Réglages Système › Général › Ouverture pour éviter une double ouverture.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Général") {
                 Toggle("Ouvrir Zeste au démarrage du Mac", isOn: $atLogin)

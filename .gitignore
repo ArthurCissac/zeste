@@ -2,3 +2,5 @@
 build/
 .DS_Store
 vendor/
+backup/
+build-dev/
