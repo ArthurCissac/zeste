@@ -55,6 +55,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSHumanReadableCopyright</key><string>Zeste — Arthur Cissac. FFmpeg sous licence LGPL 2.1 (voir Resources/Licences).</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Zeste transcrit l'audio de vos vidéos pour créer des sous-titres, entièrement sur votre Mac.</string>
   <key>NSAppleEventsUsageDescription</key>
   <string>Zeste pilote le Finder (sélection) et Pages, Keynote ou Numbers pour convertir vos documents, sur votre Mac.</string>
 </dict>

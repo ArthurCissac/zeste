@@ -9,6 +9,7 @@ enum Catalog {
         case .actions: return actions
         case .convert: return convert(urls)
         case .tools: return tools(urls)
+        case .extras: return extras(urls)
         }
     }
 
@@ -170,6 +171,42 @@ enum Catalog {
             return t + [zip]
         default:
             return [zip]
+        }
+    }
+
+    // MARK: Extras (réseaux sociaux, sous-titres, lecture, taille cible)
+
+    static func extras(_ urls: [URL]) -> [Option] {
+        let kinds = Set(urls.map(\.kind))
+        guard kinds.count == 1, let kind = kinds.first else { return [] }
+        let read = [Option(id: "ocr", title: "Lire le texte", symbol: "text.viewfinder", run: Reader.text),
+                    Option(id: "qr", title: "Lire le QR code", symbol: "qrcode.viewfinder", run: Reader.qr)]
+        switch kind {
+        case .image, .svg:
+            return Social.all.map { f in tool("social-\(f.id)", f.title, f.symbol, one { try await Social.image($0, f) }) }
+                + read
+                + [tool("target-mail", "Mail 1 Mo", "envelope", one { try await Target.image($0, bytes: 1_000_000) }),
+                   tool("target-img", "Poids max", "scalemass", one { try await Target.image($0, bytes: try Target.ask($0, initial: "500 Ko")) })]
+        case .video, .gif:
+            return [tool("social-story", "Story 9:16", "rectangle.portrait", one { try await Social.video($0, Social.story) }),
+                    tool("social-story-blur", "Story flou", "rectangle.portrait.inset.filled", one { try await Social.blurred($0, Social.story) }),
+                    tool("social-post", "Post 4:5", "rectangle.portrait.on.rectangle.portrait", one { try await Social.video($0, Social.post) }),
+                    tool("social-square", "Carré 1:1", "square", one { try await Social.video($0, Social.square) }),
+                    tool("social-wide", "YouTube 16:9", "rectangle", one { try await Social.video($0, Social.wide) })]
+                + (kind == .video ? [
+                    tool("subs-burn", "Incruster", "captions.bubble.fill", one(AutoSubs.burn)),
+                    tool("subs-srt", "Sous-titres", "captions.bubble", one(AutoSubs.toSRT)),
+                    tool("transcribe", "Transcrire", "text.quote", one(AutoSubs.toText))] : [])
+                + [tool("target-whatsapp", "WhatsApp", "message", one { try await Target.video($0, bytes: 16_000_000) }),
+                   tool("target-video", "Poids max", "scalemass", one { try await Target.video($0, bytes: try Target.ask($0, initial: "25 Mo")) })]
+        case .audio:
+            return [tool("subs-srt", "Sous-titres", "captions.bubble", one(AutoSubs.toSRT)),
+                    tool("transcribe", "Transcrire", "text.quote", one(AutoSubs.toText)),
+                    tool("target-audio", "Poids max", "scalemass", one { try await Target.audio($0, bytes: try Target.ask($0, initial: "10 Mo")) })]
+        case .pdf:
+            return read
+        default:
+            return []
         }
     }
 

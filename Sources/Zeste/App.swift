@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.button?.image = NSImage(systemSymbolName: "circle.dashed.inset.filled", accessibilityDescription: "Zeste")
 
         let menu = NSMenu()
-        let head = NSMenuItem(title: "Zeste : glisse un fichier, puis ⇧ ⌘ ou ⌃", action: nil, keyEquivalent: "")
+        let head = NSMenuItem(title: "Zeste : glisse un fichier, puis ⇧ ⌘ ⌃ ou ⌥", action: nil, keyEquivalent: "")
         head.isEnabled = false
         menu.addItem(head)
         menu.addItem(.separator())
@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         \(k(.convert))  pour convertir (JPG, WebP, MP4, PDF, Word…)
         \(k(.tools))  pour les outils (compresser, couper, fusionner…)
         \(k(.actions))  pour les actions (AirDrop, copier le chemin…)
+        \(k(.extras))  pour les extras (formats réseaux sociaux, sous-titres auto, lire le texte, taille cible…)
 
         Une roue apparaît : dépose le fichier sur la part voulue. Au centre, tu annules. Le fichier créé arrive à côté de l'original.
 
@@ -92,6 +93,8 @@ struct SettingsView: View {
     @AppStorage("convertKey") private var convertKey = ModKey.shift.rawValue
     @AppStorage("toolsKey") private var toolsKey = ModKey.command.rawValue
     @AppStorage("actionsKey") private var actionsKey = ModKey.control.rawValue
+    @AppStorage("extrasKey") private var extrasKey = ModKey.option.rawValue
+    @AppStorage("speechLang") private var speechLang = "fr-FR"
     @AppStorage("output") private var output = OutputPlace.beside.rawValue
     @AppStorage("quality") private var quality = 0.85
     @AppStorage("sound") private var sound = true
@@ -106,8 +109,9 @@ struct SettingsView: View {
                 keyPicker("Convertir", $convertKey)
                 keyPicker("Outils", $toolsKey)
                 keyPicker("Actions", $actionsKey)
-                if Set([convertKey, toolsKey, actionsKey]).count < 3 {
-                    Text("Deux roues utilisent la même touche : choisis trois touches différentes.")
+                keyPicker("Extras", $extrasKey)
+                if Set([convertKey, toolsKey, actionsKey, extrasKey]).count < 4 {
+                    Text("Deux roues utilisent la même touche : choisis quatre touches différentes.")
                         .foregroundStyle(.orange).font(.callout)
                 }
             }
@@ -141,6 +145,10 @@ struct SettingsView: View {
                     }
                 if let e = loginError { Text(e).foregroundStyle(.red).font(.callout) }
                 Toggle("Son à la fin d'une conversion", isOn: $sound)
+                Picker("Langue des sous-titres", selection: $speechLang) {
+                    Text("Français").tag("fr-FR"); Text("Anglais (US)").tag("en-US"); Text("Anglais (UK)").tag("en-GB")
+                    Text("Espagnol").tag("es-ES"); Text("Allemand").tag("de-DE"); Text("Italien").tag("it-IT")
+                }
                 LabeledContent("Sans souris", value: "⌃⌥Espace sur une sélection du Finder")
             }
         }
@@ -197,6 +205,7 @@ enum CLI {
             do {
                 let outs = try await opt.run(files)
                 outs.forEach { print($0.path) }
+                if let n = Runner.note { print("NOTE :", n) }
                 Runner.partialErrors.forEach { print("ÉCHEC PARTIEL :", $0) }
                 exit(0)
             } catch {

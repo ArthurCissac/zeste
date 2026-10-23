@@ -78,8 +78,8 @@ enum Prefs {
     private static var d: UserDefaults { .standard }
 
     static func key(for mode: Mode) -> ModKey {
-        let defaults: [Mode: ModKey] = [.convert: .shift, .tools: .command, .actions: .control]
-        let names: [Mode: String] = [.convert: "convertKey", .tools: "toolsKey", .actions: "actionsKey"]
+        let defaults: [Mode: ModKey] = [.convert: .shift, .tools: .command, .actions: .control, .extras: .option]
+        let names: [Mode: String] = [.convert: "convertKey", .tools: "toolsKey", .actions: "actionsKey", .extras: "extrasKey"]
         return ModKey(rawValue: d.string(forKey: names[mode]!) ?? "") ?? defaults[mode]!
     }
 
@@ -96,5 +96,8 @@ enum Prefs {
     static var accent: Accent { Accent(rawValue: d.string(forKey: "accent") ?? "") ?? .violet }
 
     /// Petits clics et retour haptique au survol de la roue.
+    /// Langue de la transcription (sous-titres automatiques).
+    static var speechLang: String { d.string(forKey: "speechLang") ?? "fr-FR" }
+
     static var clicks: Bool { d.object(forKey: "clicks") as? Bool ?? true }
 }

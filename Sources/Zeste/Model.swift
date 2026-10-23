@@ -17,9 +17,9 @@ enum ZError: LocalizedError {
 // MARK: - Les trois roues
 
 enum Mode: Int, CaseIterable {
-    case convert, tools, actions
+    case convert, tools, actions, extras
 
-    var title: String { ["Convertir", "Outils", "Actions"][rawValue] }
+    var title: String { ["Convertir", "Outils", "Actions", "Extras"][rawValue] }
 }
 
 /// Une entrée de roue : un format de sortie, un outil ou une action.

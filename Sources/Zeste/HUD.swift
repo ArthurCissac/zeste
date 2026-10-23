@@ -93,18 +93,24 @@ final class HUD: NSObject {
 @MainActor
 enum Runner {
     static var partialErrors: [String] = []
+    /// Message de fin fourni par l'option elle-même (« Texte copié »…), prioritaire.
+    static var note: String?
 
     static func run(_ opt: Option, _ files: [URL]) {
         Task { @MainActor in
             partialErrors = []
+            note = nil
             HUD.shared.show("\(opt.title)…", spinning: true)
             do {
                 let outs = try await opt.run(files)
-                if let done = opt.done {
+                if let n = note, outs.isEmpty {
+                    HUD.shared.show("✓ " + n, duration: 6)
+                } else if let done = opt.done {
                     HUD.shared.show("✓ " + done(files.count), reveal: opt.id == "move" ? outs : [])
                 } else {
                     var msg = "✓ " + (outs.count > 1 ? "\(outs.count) fichiers créés" : (outs.first?.lastPathComponent ?? "Terminé"))
                     if !partialErrors.isEmpty { msg += " · \(partialErrors.count) échec(s) : \(partialErrors[0])" }
+                    if let n = note { msg += " · " + n }
                     HUD.shared.show(msg, reveal: outs, duration: partialErrors.isEmpty ? 5 : 9)
                 }
                 if Prefs.sound { NSSound(named: "Glass")?.play() }
