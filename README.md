@@ -1,47 +1,76 @@
-# Zeste
+<p align="center"><img src="docs/img/icone.png" width="128" alt="Zeste"></p>
 
-Convertisseur de fichiers hors ligne pour Mac, dans la barre des menus. Usage personnel d'Arthur,
-écrit de zéro (aucun code, nom ni visuel repris d'une autre app).
+<h1 align="center">Zeste</h1>
 
-## Utilisation
+<p align="center">
+  Convertis, retouche et partage tes fichiers d'un simple glisser.<br>
+  Gratuit, open source, 100 % hors ligne, pour Mac.
+</p>
 
-Glisser un ou plusieurs fichiers, et sans lâcher, appuyer sur :
+<p align="center">
+  <a href="https://github.com/ArthurCissac/zeste/releases/latest/download/Zeste.dmg"><b>Télécharger Zeste.dmg</b></a> ·
+  <a href="https://arthurcissac.github.io/zeste/">Page de présentation</a>
+</p>
+
+<p align="center"><img src="docs/img/roue-convertir.png" width="380" alt="La roue Convertir"></p>
+
+## Comment ça marche
+
+Glisse un ou plusieurs fichiers et, sans lâcher, appuie sur une touche. Une roue apparaît sous
+le curseur : dépose le fichier sur la part voulue. Le résultat arrive à côté de l'original,
+qui n'est jamais modifié. Au centre de la roue, on annule.
 
 | Touche | Roue | Exemples |
 |---|---|---|
 | ⇧ | Convertir | JPG, PNG, WebP, HEIC, AVIF, MP4, WebM, GIF, MP3, PDF, Word, EPUB… |
-| ⌘ | Outils | compresser, redimensionner, couper, découper, fusionner, favicon… |
-| ⌃ | Actions | AirDrop, flotter, copier, déplacer, copier le chemin, Terminal |
-| ⌥ | Extras | formats réseaux sociaux, sous-titres auto, lire texte et QR, poids cible |
-| ⇧⌘ | Éditer | retoucher une photo ou une vidéo, retirer le fond, couper avec la forme d'onde |
+| ⌘ | Outils | compresser, redimensionner, recadrer, découper, fusionner, favicon… |
+| ⌃ | Actions | AirDrop, fenêtre flottante, copier, déplacer, copier le chemin, Terminal |
+| ⌥ | Extras | formats réseaux sociaux, sous-titres automatiques, lire texte et QR codes, poids cible |
+| ⇧⌘ | Éditer | retoucher une photo ou une vidéo, retirer le fond, couper sur la forme d'onde |
 
-Déposer sur une part de la roue ; au centre, on annule. Le résultat arrive à côté de l'original
-(réglable). Sans souris : sélection Finder + ⌃⌥Espace, flèches, Tab, Entrée, Échap.
+Sans souris : sélectionne un fichier dans le Finder et fais ⌃⌥Espace, puis flèches, Tab et Entrée.
 
-## Moteurs
+## Installer
 
-- Images : ImageIO (natif), `cwebp` pour le WebP.
-- Vidéo, audio : `ffmpeg` (Homebrew).
-- PDF, texte, RTF, HTML, Word, ODT : PDFKit et AppKit.
-- Pages, Keynote, Numbers : pilotés par AppleScript (autorisation Automatisation demandée une fois).
-- Archives : `ditto`, `zip`, `tar` (libarchive lit aussi le RAR et le 7z).
+1. Télécharge [Zeste.dmg](https://github.com/ArthurCissac/zeste/releases/latest/download/Zeste.dmg).
+2. Ouvre-le et glisse Zeste dans Applications.
+3. Ouvre Zeste : son icône apparaît dans la barre des menus.
 
-Non pris en charge : PDF vers PowerPoint ou Excel, sortie ODS.
+Il faut un Mac avec puce Apple et macOS 14 ou plus récent. L'app est signée (Developer ID) et
+notarisée par Apple.
 
-## Construire et installer
+## Confidentialité
+
+Tout est calculé sur le Mac : conversions, transcription, détourage, lecture de texte. Aucun
+fichier n'est envoyé en ligne, et l'app ne contient ni suivi ni publicité.
+
+## Construire depuis les sources
 
 ```bash
-./scripts/build-app.sh
+./scripts/build-ffmpeg.sh   # une fois : ffmpeg autonome, LGPL, macOS 14+
+./scripts/build-app.sh      # compile, signe et installe ~/Applications/Zeste.app
+./scripts/release.sh        # Zeste.dmg notarisé (certificat Developer ID requis)
 ```
 
-Installe `~/Applications/Zeste.app` (signature locale). Chaque reconstruction change la signature :
-macOS peut redemander l'autorisation Automatisation.
+Prérequis : Xcode, Homebrew (pour les sources des bibliothèques audio et vidéo).
 
-## Tester sans interface
+### Moteurs
+
+- Images : ImageIO ; WebP par libwebp.
+- Vidéo, audio : FFmpeg embarqué (H.264 par VideoToolbox d'Apple).
+- PDF et textes : PDFKit et AppKit ; Word, Pages, Keynote et Numbers via les apps d'Apple.
+- Sous-titres, texte, QR codes, détourage : Speech et Vision, sur l'appareil.
+- Archives : `ditto`, `zip`, `tar`.
+
+### Tester sans interface
 
 ```bash
-.build/release/Zeste --run list fichier.png
-.build/release/Zeste --run to-webp fichier.png
-ZESTE_ANSWER="0:05|0:20" .build/release/Zeste --run trim video.mp4
+.build/release/Zeste --run list fichier.png          # options proposées
+.build/release/Zeste --run to-webp fichier.png       # une conversion
 .build/release/Zeste --run snapshot 0 roue.png fichier.png
 ```
+
+## Licence
+
+Code sous licence [MIT](LICENSE). L'app distribuée embarque FFmpeg (LGPL 2.1) et d'autres
+composants libres, détaillés dans [NOTICE.txt](NOTICE.txt).

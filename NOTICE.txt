@@ -1,5 +1,5 @@
-Zeste — convertisseur de fichiers hors ligne pour Mac.
-© Arthur Cissac. Gratuit, distribué tel quel, sans garantie.
+Zeste — convertisseur de fichiers hors ligne pour Mac. https://github.com/ArthurCissac/zeste
+© 2026 Arthur Cissac. Code sous licence MIT (LICENSE). Distribué tel quel, sans garantie.
 
 Composants tiers embarqués (Contents/Resources/bin) :
 

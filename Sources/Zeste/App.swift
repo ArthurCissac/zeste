@@ -224,8 +224,11 @@ enum CLI {
                 let rep = box.bitmapImageRepForCachingDisplay(in: box.bounds)!
                 NSGraphicsContext.saveGraphicsState()
                 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-                NSColor.white.setFill()
-                box.bounds.fill()
+                // ZESTE_BG=clear : fond transparent (images de la page de présentation).
+                if ProcessInfo.processInfo.environment["ZESTE_BG"] != "clear" {
+                    NSColor.white.setFill()
+                    box.bounds.fill()
+                }
                 NSGraphicsContext.restoreGraphicsState()
                 box.cacheDisplay(in: box.bounds, to: rep)
                 do { try rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[2])) }
