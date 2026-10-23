@@ -16,15 +16,10 @@ ditto -c -k --keepParent "$APP" build/Zeste-notarize.zip
 xcrun notarytool submit build/Zeste-notarize.zip --keychain-profile "$PROFILE" --wait
 xcrun stapler staple "$APP"
 
-# 2. Image disque avec un raccourci vers Applications.
+# 2. Image disque soignée : fond Zeste, flèche vers Applications, icône de volume.
 VERSION=$(cat VERSION 2>/dev/null || echo 1.0)
 DMG=build/Zeste-$VERSION.dmg
-STAGE=build/dmg
-rm -rf "$STAGE" "$DMG"
-mkdir -p "$STAGE"
-cp -R "$APP" "$STAGE/"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "Zeste" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+./scripts/make-dmg.sh "$APP" "$DMG"
 codesign --force --timestamp --sign "$SIGN" "$DMG"
 
 # 3. Notarisation de l'image disque.

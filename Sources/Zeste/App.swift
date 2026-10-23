@@ -215,15 +215,21 @@ enum CLI {
                 v.options = Catalog.options(for: Array(list), mode: mode)
                 v.hover = ProcessInfo.processInfo.environment["ZESTE_HOVER"].flatMap { Int($0) }
                 v.settle()
-                let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds)!
+                // Roue + onglets, sur fond blanc : le pire cas de lisibilité.
+                let tabs = WheelTabs(frame: NSRect(x: 0, y: 0, width: 420, height: 52))
+                tabs.mode = mode
+                let box = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 472))
+                v.frame.origin.y = 52
+                box.addSubview(v); box.addSubview(tabs)
+                let rep = box.bitmapImageRepForCachingDisplay(in: box.bounds)!
                 NSGraphicsContext.saveGraphicsState()
                 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-                // Fond blanc : le pire cas de lisibilité (fenêtre claire derrière la roue).
                 NSColor.white.setFill()
-                v.bounds.fill()
+                box.bounds.fill()
                 NSGraphicsContext.restoreGraphicsState()
-                v.cacheDisplay(in: v.bounds, to: rep)
-                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[2]))
+                box.cacheDisplay(in: box.bounds, to: rep)
+                do { try rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[2])) }
+                catch { print("snapshot :", error.localizedDescription) }
                 exit(0)
             }
             if first == "render-editor", args.count >= 3 {

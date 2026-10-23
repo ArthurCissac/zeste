@@ -12,8 +12,11 @@ final class Wheel: NSObject, NSWindowDelegate {
     static let shared = Wheel()
 
     let size: CGFloat = 440
+    /// Hauteur de la rangée d'onglets sous la roue.
+    let tabsH: CGFloat = 52
     let panel: WheelPanel
     let view: WheelView
+    let tabs: WheelTabs
     private let root: NSView
     private(set) var files: [URL] = []
     private(set) var mode: Mode = .convert
@@ -24,10 +27,11 @@ final class Wheel: NSObject, NSWindowDelegate {
     var isVisible: Bool { panel.isVisible && panel.alphaValue > 0.01 }
 
     override init() {
-        panel = WheelPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size),
+        panel = WheelPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size + tabsH),
                            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        view = WheelView(frame: NSRect(x: 0, y: 0, width: size, height: size))
-        root = NSView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+        view = WheelView(frame: NSRect(x: 0, y: tabsH, width: size, height: size))
+        tabs = WheelTabs(frame: NSRect(x: 0, y: 0, width: size, height: tabsH))
+        root = NSView(frame: NSRect(x: 0, y: 0, width: size, height: size + tabsH))
         super.init()
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -37,7 +41,7 @@ final class Wheel: NSObject, NSWindowDelegate {
         panel.delegate = self
         panel.appearance = NSAppearance(named: .darkAqua)
 
-        let blur = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: size, height: size).insetBy(dx: 20, dy: 20))
+        let blur = NSVisualEffectView(frame: NSRect(x: 0, y: tabsH, width: size, height: size).insetBy(dx: 20, dy: 20))
         // Toujours sombre : en mode clair, le flou devenait blanc et le texte blanc disparaissait.
         blur.appearance = NSAppearance(named: .vibrantDark)
         blur.material = .hudWindow
@@ -50,6 +54,8 @@ final class Wheel: NSObject, NSWindowDelegate {
         root.wantsLayer = true
         root.addSubview(blur)
         root.addSubview(view)
+        root.addSubview(tabs)
+        tabs.owner = self
         panel.contentView = root
         view.owner = self
     }
@@ -63,8 +69,9 @@ final class Wheel: NSObject, NSWindowDelegate {
         let vf = screen.frame
         var c = point ?? NSPoint(x: screen.visibleFrame.midX, y: screen.visibleFrame.midY)
         c.x = min(max(c.x, vf.minX + size / 2), vf.maxX - size / 2)
-        c.y = min(max(c.y, vf.minY + size / 2), vf.maxY - size / 2)
-        panel.setFrameOrigin(NSPoint(x: c.x - size / 2, y: c.y - size / 2))
+        c.y = min(max(c.y, vf.minY + size / 2 + tabsH), vf.maxY - size / 2)
+        // La roue reste centrée sous le curseur ; les onglets se placent en dessous.
+        panel.setFrameOrigin(NSPoint(x: c.x - size / 2, y: c.y - size / 2 - tabsH))
 
         // Ouverture : fondu + léger rebond depuis 80 %.
         panel.alphaValue = 0
@@ -87,7 +94,7 @@ final class Wheel: NSObject, NSWindowDelegate {
     private func pop(from scale: CGFloat) {
         guard let layer = root.layer else { return }
         layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        layer.position = CGPoint(x: size / 2, y: size / 2)
+        layer.position = CGPoint(x: size / 2, y: (size + tabsH) / 2)
         let spring = CASpringAnimation(keyPath: "transform.scale")
         spring.fromValue = scale
         spring.toValue = 1
@@ -110,6 +117,8 @@ final class Wheel: NSObject, NSWindowDelegate {
         view.options = Catalog.options(for: files, mode: m)
         view.hover = keyboardMode && !view.options.isEmpty ? 0 : nil
         view.needsDisplay = true
+        tabs.mode = m
+        tabs.needsDisplay = true
         if animated {
             view.startIntro()
             pop(from: 0.94)
@@ -398,5 +407,80 @@ extension NSColor {
     var isLight: Bool {
         guard let c = usingColorSpace(.sRGB) else { return false }
         return 0.299 * c.redComponent + 0.587 * c.greenComponent + 0.114 * c.blueComponent > 0.62
+    }
+}
+
+/// Les cinq roues en onglets sous la roue : l'onglet ouvert est en couleur.
+/// Un clic, ou le fichier glissé par-dessus, ouvre la roue correspondante.
+final class WheelTabs: NSView {
+    weak var owner: Wheel?
+    var mode: Mode = .convert
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    private let keyFont = NSFont.systemFont(ofSize: 11.5, weight: .bold)
+    private let nameFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+
+    /// Rectangles des onglets, centrés horizontalement.
+    func frames() -> [(Mode, NSRect)] {
+        let items = Mode.allCases.map { m -> (Mode, CGFloat) in
+            let k = (Prefs.key(for: m).symbol as NSString).size(withAttributes: [.font: keyFont]).width
+            let n = (m.title as NSString).size(withAttributes: [.font: nameFont]).width
+            return (m, k + n + 24)
+        }
+        let gap: CGFloat = 5
+        let total = items.map(\.1).reduce(0, +) + gap * CGFloat(items.count - 1)
+        var x = (bounds.width - total) / 2
+        return items.map { m, w in
+            defer { x += w + gap }
+            return (m, NSRect(x: x, y: 12, width: w, height: 26))
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let fr = frames()
+        guard let first = fr.first?.1, let last = fr.last?.1 else { return }
+        // Fond sombre commun, lisible sur n'importe quelle fenêtre.
+        let bar = NSRect(x: first.minX - 6, y: first.minY - 5, width: last.maxX - first.minX + 12, height: first.height + 10)
+        NSColor(white: 0.07, alpha: 0.86).setFill()
+        NSBezierPath(roundedRect: bar, xRadius: bar.height / 2, yRadius: bar.height / 2).fill()
+
+        let accent = Prefs.accent.color
+        for (m, r) in fr {
+            let active = m == mode
+            if active {
+                accent.setFill()
+                NSBezierPath(roundedRect: r, xRadius: r.height / 2, yRadius: r.height / 2).fill()
+            }
+            let ink: NSColor = active ? (accent.isLight ? .black : .white) : NSColor(white: 1, alpha: 0.6)
+            let sym = Prefs.key(for: m).symbol as NSString
+            let kw = sym.size(withAttributes: [.font: keyFont]).width
+            sym.draw(at: NSPoint(x: r.minX + 10, y: r.minY + 5.5), withAttributes: [.font: keyFont, .foregroundColor: ink])
+            (m.title as NSString).draw(at: NSPoint(x: r.minX + 14 + kw, y: r.minY + 6),
+                                       withAttributes: [.font: nameFont, .foregroundColor: ink])
+        }
+    }
+
+    private func mode(at p: NSPoint) -> Mode? {
+        frames().first { $0.1.insetBy(dx: -2, dy: -6).contains(p) }?.0
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if let m = mode(at: convert(event.locationInWindow, from: nil)) { owner?.switchMode(m) }
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { hover(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { hover(sender) }
+
+    private func hover(_ s: NSDraggingInfo) -> NSDragOperation {
+        if let m = mode(at: convert(s.draggingLocation, from: nil)) { owner?.switchMode(m) }
+        return []
     }
 }
