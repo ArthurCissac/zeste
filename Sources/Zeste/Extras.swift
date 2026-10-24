@@ -283,13 +283,20 @@ enum AutoSubs {
 
 @MainActor
 enum Reader {
-    static func ocr(_ img: CGImage) throws -> String {
+    // Vision tourne hors du fil principal : sinon la roue et le HUD restent figés le temps de la lecture.
+    nonisolated static func ocr(_ img: CGImage) throws -> String {
         let req = VNRecognizeTextRequest()
         req.recognitionLevel = .accurate
         req.usesLanguageCorrection = true
         req.recognitionLanguages = ["fr-FR", "en-US"]
         try VNImageRequestHandler(cgImage: img, options: [:]).perform([req])
         return (req.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+    }
+
+    nonisolated static func codes(_ img: CGImage) throws -> [String] {
+        let req = VNDetectBarcodesRequest()
+        try VNImageRequestHandler(cgImage: img, options: [:]).perform([req])
+        return (req.results ?? []).compactMap(\.payloadStringValue)
     }
 
     static func images(_ u: URL) throws -> [CGImage] {
@@ -308,10 +315,15 @@ enum Reader {
                 parts.append(s)
                 continue
             }
-            for img in try images(u) {
-                let t = try ocr(img)
-                if !t.isEmpty { parts.append(t) }
+            // Les pages d'un PDF scanné sont lues en parallèle, puis remises dans l'ordre.
+            let imgs = try images(u)
+            let texts = try await withThrowingTaskGroup(of: (Int, String).self) { g in
+                for (i, img) in imgs.enumerated() { g.addTask(priority: .userInitiated) { (i, try ocr(img)) } }
+                var r: [(Int, String)] = []
+                for try await x in g { r.append(x) }
+                return r.sorted { $0.0 < $1.0 }.map(\.1)
             }
+            parts += texts.filter { !$0.isEmpty }
         }
         let text = parts.joined(separator: "\n\n")
         guard !text.isEmpty else { throw ZError.msg("aucun texte trouvé") }
@@ -325,9 +337,7 @@ enum Reader {
         var found: [String] = []
         for u in urls {
             for img in try images(u) {
-                let req = VNDetectBarcodesRequest()
-                try VNImageRequestHandler(cgImage: img, options: [:]).perform([req])
-                found += (req.results ?? []).compactMap(\.payloadStringValue)
+                found += try await Task.detached(priority: .userInitiated) { try codes(img) }.value
             }
         }
         guard !found.isEmpty else { throw ZError.msg("aucun QR code trouvé") }

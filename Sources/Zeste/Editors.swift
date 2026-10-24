@@ -317,7 +317,7 @@ struct Checkerboard: View {
 
 @MainActor
 enum BackgroundRemover {
-    static func mask(for image: CIImage, ctx: CIContext) throws -> CIImage {
+    nonisolated static func mask(for image: CIImage, ctx: CIContext) throws -> CIImage {
         guard let cg = ctx.createCGImage(image, from: image.extent) else { throw ZError.msg("image illisible") }
         let req = VNGenerateForegroundInstanceMaskRequest()
         let handler = VNImageRequestHandler(cgImage: cg, options: [:])
@@ -332,7 +332,8 @@ enum BackgroundRemover {
         let (cg, _) = try Img.load(u)
         let img = CIImage(cgImage: cg)
         let ctx = CIContext()
-        let m = try mask(for: img, ctx: ctx)
+        // Détourage hors du fil principal : la roue se ferme et le HUD tourne pendant le calcul.
+        let m = try await Task.detached(priority: .userInitiated) { try mask(for: img, ctx: ctx) }.value
         let out = img.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: CIImage.empty(), kCIInputMaskImageKey: m])
         guard let res = ctx.createCGImage(out, from: img.extent) else { throw ZError.msg("détourage impossible") }
         let dest = Out.url(u, ext: "png", suffix: "détourée")
